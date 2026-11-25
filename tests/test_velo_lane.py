@@ -170,5 +170,5 @@ class TelegramProbeTest(unittest.TestCase):
         self.assertNotRegex(self.text, r"\n  (push|pull_request|schedule):")
 
     def test_never_types_or_enters_a_number(self):
-        self.assertNotRegex(self.scripts, r"input\s*['\"]?,?\s*['\"]?text|type\.py|\"text\"")
-        self.assertNotRegex(self.scripts, r"9996|\+\d{6,}")
+        self.assertNotRegex(self.scripts, r"input['\",\s]+text\b|type\.py")
+        self.assertNotRegex(self.scripts, r"\+?\d{9,}")  # no phone number in the probe

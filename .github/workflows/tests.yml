@@ -20,4 +20,4 @@ jobs:
       - name: No secrets or personal addresses (public repository)
         run: bash scripts/check_no_secrets.sh
       - name: Shell syntax
-        run: for f in scripts/*.sh scripts/velo/*.sh; do bash -n "$f"; done
+        run: for f in scripts/*.sh scripts/velo/*.sh scripts/telegram/*.sh; do bash -n "$f"; done
