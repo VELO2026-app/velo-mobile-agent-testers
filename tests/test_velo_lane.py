@@ -155,3 +155,20 @@ class ChromeReadyTest(unittest.TestCase):
     def test_the_apps_own_button_with_the_same_word_is_left_alone(self):
         closed, taps = self.run_with([[self.node("Skip", "")], [self.node("Skip", "")], []])
         self.assertEqual((closed, taps), ([], []))
+
+
+class TelegramProbeTest(unittest.TestCase):
+    """The probe must stay keyless and loginless."""
+
+    text = (ROOT / ".github/workflows/telegram-probe.yml").read_text(encoding="utf-8")
+    scripts = (ROOT / "scripts/telegram/probe.sh").read_text(encoding="utf-8") + \
+        (ROOT / "scripts/telegram/probe.py").read_text(encoding="utf-8")
+
+    def test_no_secrets_and_manual_only(self):
+        self.assertNotIn("secrets.", self.text)
+        self.assertIn("workflow_dispatch:", self.text)
+        self.assertNotRegex(self.text, r"\n  (push|pull_request|schedule):")
+
+    def test_never_types_or_enters_a_number(self):
+        self.assertNotRegex(self.scripts, r"input\s*['\"]?,?\s*['\"]?text|type\.py|\"text\"")
+        self.assertNotRegex(self.scripts, r"9996|\+\d{6,}")

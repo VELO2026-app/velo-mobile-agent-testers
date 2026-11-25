@@ -1,0 +1,55 @@
+# =============================================================================
+# Telegram for Android on an emulator: is there a switch to the TEST backend?
+# =============================================================================
+# No key, no login, no phone number, no account. It downloads the official APK,
+# installs it on an emulator, opens the first screens, reads their accessibility
+# tree and answers one question (FE-276, docs/telegram-lane.md). Results are
+# encrypted like everywhere else in this repository.
+name: Telegram APK probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      apk_url:
+        description: Telegram for Android APK (the official download)
+        default: https://telegram.org/dl/android/apk
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+
+      - name: Emulator + probe
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          APK_URL: ${{ inputs.apk_url }}
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7
+          ram-size: 4096M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: bash scripts/telegram/probe.sh
+
+      - name: Encrypt results
+        if: always()
+        run: bash scripts/encrypt_results.sh telegram-probe
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: results-telegram-probe
+          path: results.enc/
+          retention-days: 14
