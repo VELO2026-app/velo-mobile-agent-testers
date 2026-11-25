@@ -1,0 +1,16 @@
+# results of runs (decrypted on the owner's machine) and encrypted staging
+results/
+results.enc/
+results.tgz
+runs/
+# any key or token file, whatever its name; only the PUBLIC result key is tracked
+*.pem
+!results_public.pem
+*.key
+*.key.bin
+.env
+.env.*
+*.session
+*.tgz
+__pycache__/
+.DS_Store

@@ -1,0 +1,23 @@
+# Offline checks on every push: no emulator, no key, no network beyond pip.
+name: Tests
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0   # the secret scan reads the whole history
+      - uses: actions/setup-python@v7
+        with: { python-version: '3.12' }
+      - run: pip install -q pillow
+      - run: python -m unittest discover -s tests -v
+      - name: No secrets or personal addresses (public repository)
+        run: bash scripts/check_no_secrets.sh
+      - name: Shell syntax
+        run: for f in scripts/*.sh scripts/velo/*.sh; do bash -n "$f"; done
