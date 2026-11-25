@@ -26,6 +26,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import chrome_ready  # noqa: E402
 import sign_init_data as sid  # noqa: E402
 
 OUT = Path(os.environ.get("SMOKE_OUT", "results/smoke"))
@@ -153,6 +154,9 @@ def main() -> int:
             break
         time.sleep(2)
     time.sleep(3)
+    closed = chrome_ready.dismiss_prompts()
+    if closed:
+        res["notes"].append("closed Chrome prompts: " + ", ".join(closed))
     st = cdp.eval(STATE_JS) or st
     shot("01-opened")
     res["opened"] = st

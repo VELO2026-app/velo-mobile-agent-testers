@@ -126,3 +126,32 @@ class PersonasTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ChromeReadyTest(unittest.TestCase):
+    """Only Chrome's native dialog buttons are pressed, never the page's own."""
+
+    def node(self, text, rid, bounds="[0,0][100,100]"):
+        import xml.etree.ElementTree as ET
+        return ET.Element("node", {"text": text, "resource-id": rid, "bounds": bounds})
+
+    def run_with(self, rounds):
+        import chrome_ready
+        taps, seq = [], iter(rounds)
+        chrome_ready.ui_nodes = lambda: next(seq, [])
+        orig = chrome_ready.adb
+        chrome_ready.adb = lambda *a, **k: taps.append(a) or ""
+        chrome_ready.time.sleep = lambda s: None
+        try:
+            return chrome_ready.dismiss_prompts(), [t for t in taps if t[:3] == ("shell", "input", "tap")]
+        finally:
+            chrome_ready.adb = orig
+
+    def test_native_decline_button_is_tapped(self):
+        closed, taps = self.run_with([[self.node("No thanks", "com.android.chrome:id/negative_button", "[0,0][200,100]")], []])
+        self.assertEqual(closed, ["No thanks"])
+        self.assertEqual(taps, [("shell", "input", "tap", "100", "50")])
+
+    def test_the_apps_own_button_with_the_same_word_is_left_alone(self):
+        closed, taps = self.run_with([[self.node("Skip", "")], [self.node("Skip", "")], []])
+        self.assertEqual((closed, taps), ([], []))

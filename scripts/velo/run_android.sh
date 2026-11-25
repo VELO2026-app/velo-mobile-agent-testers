@@ -40,6 +40,7 @@ adb emu geo fix "${GEO#*,}" "${GEO%,*}" >/dev/null 2>&1   # longitude first
 adb shell settings put secure show_ime_with_hard_keyboard 1
 adb shell "echo '_ --disable-fre --no-first-run --no-default-browser-check --disable-notifications' > /data/local/tmp/chrome-command-line; chmod 755 /data/local/tmp/chrome-command-line"
 adb shell am set-debug-app --persistent com.android.chrome >/dev/null 2>&1 || true
+adb shell pm grant com.android.chrome android.permission.POST_NOTIFICATIONS >/dev/null 2>&1 || true   # Android 13+: no notification promo
 if ! adb shell pm list packages com.android.chrome | grep -q chrome; then
   echo "ERROR: Chrome is not installed on this emulator image (target google_apis)." >&2
   exit 1
@@ -74,6 +75,7 @@ fi
 # 5b. The agent
 open_app "$START_PATH" "$STUDENT_ID" || exit 1
 sleep 12
+python3 scripts/velo/chrome_ready.py   # close Chrome's own promo dialogs: the app must be what the agent sees
 adb logcat -c
 REC=""
 if [ "${RECORD_VIDEO:-false}" = true ]; then
