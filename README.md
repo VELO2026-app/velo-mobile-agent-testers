@@ -35,6 +35,27 @@ No Telegram here: the app runs in plain Chrome with Telegram's launch
 parameters. Telegram on a device is a separate lane:
 [docs/telegram-lane.md](docs/telegram-lane.md).
 
+## Status (2026-11-25)
+
+Done and verified in GitHub Actions (free runners, no key):
+
+- **Dry run, both skins, Pixel 7 / API 34 / dark**: green,
+  [run 45580035237](https://github.com/VELO2026-app/velo-mobile-agent-testers/actions/runs/45580035237).
+  The throwaway stack comes up, the app (gold and goodo builds) opens in Chrome at
+  `http://localhost:4173`, the Telegram launch parameters log the synthetic student in, the
+  accessibility tree is readable, and **the real Android soft keyboard opens**: Android reports the
+  IME shown, `visualViewport` goes 783 -> 471 px and back to 783 px, and the app sets and clears
+  `html.is-keyboard-open`. That is what Playwright's WebKit/Chromium emulation could not do
+  (FE-276: focus left `visualViewport` at 667).
+- **No key = a clear stop**: `agent=true` without a secret fails in the first job in about 20 s,
+  the emulator job is skipped,
+  [run 45580054201](https://github.com/VELO2026-app/velo-mobile-agent-testers/actions/runs/45580054201).
+- Results travel encrypted and decrypt with the owner-side private key (`collect.sh`), checked end to end.
+- Offline tests (59) and the secret scan pass on every push, history included.
+
+Waiting for the Claude key: the agent run itself, and the acceptance pairs on the commits before the
+#205 and #206 fixes ([docs/acceptance.md](docs/acceptance.md)).
+
 ## Where the Claude key goes
 
 The agent needs ONE of these **repository secrets** (Settings > Secrets and
