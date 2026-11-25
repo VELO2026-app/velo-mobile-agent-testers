@@ -1,163 +1,145 @@
 # Telegram lane: the Mini App inside Telegram on an Android emulator
 
-Status: **a plan, nothing installed.** It needs disk space, two licence clicks
-and a login that only the owner can do. The CI lane (README) has no Telegram;
-this one adds it, locally.
+Status: **a plan; nothing is installed on the owner's Mac.** One fact is
+verified (below) and it changes the plan: on Android there is no safe
+"test account" route, so this lane needs a real Telegram account.
 
 ## What it adds over the CI lane
 
 The CI lane opens the app in plain Chrome with Telegram's launch parameters.
 Inside Telegram the app also gets Telegram's own chrome: the top inset of the
 header buttons, the BackButton and MainButton, the way the WebView resizes
-around the keyboard, `disableVerticalSwipes`. Those are exactly the items the
-manual checklists of PRs #187, #194, #205, #206 mention. Android only: Telegram
-for iOS cannot run on the Simulator (its App Store build is for devices), so
+around the keyboard, `disableVerticalSwipes`. Those are the items the manual
+checklists of PRs #187, #194, #205, #206 mention. Android only: Telegram for
+iOS cannot run on the Simulator (its App Store build is for devices), so
 iPhone stays a manual check.
 
-## Two ways to log in, one recommended
+## Verified: Telegram's test environment is NOT reachable on Android
 
-Both are local only. **Neither the session nor a bot token goes into this
-repository, its secrets or any CI.**
+Telegram runs a separate test server with fake accounts (phone `99966XYYYY`,
+code `XXXXX`, data wiped periodically; a bot made with @BotFather on that
+server; Mini App URLs may be plain `http://`) - from
+[Telegram's docs](https://core.telegram.org/bots/webapps#testing-mini-apps) and
+[test accounts](https://core.telegram.org/api/auth#test-accounts). That would
+have made the emulator session worthless to an attacker. The docs give the way
+in only for iOS, Desktop and macOS. For Android, two independent checks:
 
-### A. Telegram's test environment (recommended): nothing real to lose
+1. **The open source** ([DrKLO/Telegram](https://github.com/DrKLO/Telegram), master).
+   The "Test backend" checkbox on the login screen
+   (`LoginActivity`: `allowTestBackend = BuildVars.DEBUG_VERSION || TEST_BACKEND_IN_STORE && !BuildConfig.BUNDLE || isTestBackend()`,
+   with `TEST_BACKEND_IN_STORE = false`) and the "Switch Backend" row in Settings
+   (`ProfileActivity`, `if (BuildVars.DEBUG_VERSION)`) exist **only in debug builds**.
+2. **The real APK, on an emulator**
+   ([run 45591293090](https://github.com/VELO2026-app/velo-mobile-agent-testers/actions/runs/45591293090),
+   workflow `telegram-probe.yml`, no key, no login, nothing typed): the official
+   APK `org.telegram.messenger.web` 13.3.1 from telegram.org (not debuggable) installs and runs
+   on the x86_64 emulator; its "Your phone number" screen has **no checkbox and no
+   test-server text**; ten taps on the title and a long press change nothing.
 
-Telegram runs a separate server for developers. Verified in Telegram's docs
-([Mini Apps: testing](https://core.telegram.org/bots/webapps#testing-mini-apps),
-[auth: test accounts](https://core.telegram.org/api/auth#test-accounts)):
+So with the stock Android app the only way in is a real account.
 
-- accounts there are fake: phone `99966XYYYY` (`X` = a datacentre digit, `YYYY`
-  random), the login code is `XXXXX` (the digit repeated five times); nothing
-  real is stored and Telegram wipes the data periodically;
-- it is "completely separate" from the real network: a new account and a new bot
-  made with @BotFather **on the test server**, the Bot API called as
-  `https://api.telegram.org/bot<token>/test/METHOD`;
-- a Mini App there may use a plain `http://` URL, even an IP, so the
-  emulator can open the owner's Mac as `http://10.0.2.2:<port>`.
+## Options
 
-So the session in the emulator is a throwaway test account, and the AVD
-snapshot is worth nothing to anyone. The bot token is a test-environment token
-(not the production dev bot's) and is only used by a local stack.
+| Option | Verdict |
+|---|---|
+| **B. A real, dedicated account in the emulator, local only** | The only working route. Rules below |
+| Build Telegram from source as a debug build (the switch appears) | Not recommended: needs an `api_id`/`api_hash` from my.telegram.org (a Telegram app registration, with a real account) and a heavy Gradle/NDK build |
+| iPhone test environment (documented: tap Settings 10 times > Accounts > Login to another account > Test) | Works on the owner's own iPhone as a manual check; the Simulator cannot run Telegram |
+| Skip the lane | Keep the Telegram-only items (top inset, BackButton, vertical-swipe collapse, iPhone) as the owner's manual checks. Reasonable if the CI lane finds enough |
 
-**Open question that decides A: how to switch Telegram for Android to the test
-server.** The docs list the way in only for iOS (tap Settings 10 times >
-Accounts > Login to another account > Test), Desktop (Shift+Alt+right-click
-"Add Account") and macOS. For Android they only describe the debug menu
-(Settings > scroll down > press and hold the version number twice) for WebView
-debugging; whether it has a backend switch is **not confirmed**. Step 4 below
-checks it in two minutes, before anything else is spent. If there is no switch,
-use B.
+**Suggested order:** run the CI lane's agent first (README). If its reports are
+useful, decide then whether Telegram's own chrome is worth a real account on an
+emulator. That decision belongs to the owner.
 
-### B. A real account in the emulator (the owner's offer): only with a dedicated account
+## Option B: real account, the rules
 
-A login on a real account puts a key to that account on the Mac:
+A login puts a key to that account on the Mac:
 
 - the session lives in the AVD (`~/.android/avd/<name>.avd/userdata-qemu.img`
   and any quick-boot snapshot, which also holds RAM). Treat both as the
   account's password;
 - **the agent's screenshots go to the model provider.** Anything on screen
-  (chat list, messages) is sent. The account must have no other chats than the
-  bot's;
-- Telegram may flag a login from an emulator and ask to re-confirm;
-- if the owner's main account is used, secret chats stay on the phone, but
-  every other chat is exposed to the screenshots.
+  (chat list, messages) is sent. The account must have **no other chats than the
+  bot's**;
+- Telegram may flag a login from an emulator and ask to re-confirm.
 
-Rules if B is used: a **dedicated account** (a second number, nothing in the
-chat list but the bot), cloud password (2FA) on, the AVD folder excluded from
-Time Machine (`tmutil addexclusion ~/.android`), FileVault on, never copied,
-zipped, committed, uploaded or synced; when done: Telegram > Settings > Devices
-> terminate the emulator's session, and `avdmanager delete avd -n velo-tg`.
-
-### Snapshot or not
-
-A quick-boot snapshot only makes boot faster (about 10 s against 60-90 s); the
-session survives without it, in the data partition. Under A keep it. Under B
-turn it off (`-no-snapshot-save`) so RAM with the session is not written to
-disk on exit; pay the longer boot.
-
-### Local only, never CI
-
-Under B: never (a CI secret that holds an account session is the account).
-Under A: possible later (download the APK per run, a scripted debug-menu login,
-the test bot's token as a secret) but fragile and unproven. Prove the local run
-first.
+Rules: a **dedicated account** (a second number, nothing in the chat list but the
+bot), cloud password (2FA) on, the AVD folder excluded from Time Machine
+(`tmutil addexclusion ~/.android`), FileVault on, quick-boot snapshot **off**
+(`-no-snapshot-save`: no RAM with the session on disk; the session itself
+survives in the data partition, boot is 60-90 s), never copied, zipped,
+committed, uploaded or synced. **Local only, never CI and never a server**: a CI
+secret or a remote disk that holds an account session is the account. When done:
+Telegram > Settings > Devices > terminate the emulator's session, and
+`avdmanager delete avd -n velo-tg`.
 
 ## Disk: how much, what to install
 
-The Mac has **6.9 GB free of 228 GB (97 % full)** after the old `node_modules`
-were removed (it was 5.4 GB). Sizes below are the archive sizes in Google's own
-repository metadata (`dl.google.com/android/repository/repository2-3.xml`
-and `sys-img/google_apis/sys-img2-3.xml`, read on 2026-11-25); unpacked sizes are
-estimates, marked `~`.
+The Mac had **6.9 GB free of 228 GB (97 % full)** on 2026-11-25. Sizes are the
+archive sizes in Google's repository metadata
+(`dl.google.com/android/repository/repository2-3.xml` and
+`sys-img/google_apis/sys-img2-3.xml`); unpacked sizes are estimates, marked `~`.
 
 | What | Download | On disk |
 |---|---|---|
-| JDK 17 (for `sdkmanager`/`avdmanager`) | ~200 MB | ~300 MB (estimate) |
+| JDK 17 (for `sdkmanager`/`avdmanager`) | ~200 MB~ | ~300 MB~ |
 | Android command-line tools 23.0 (arm64 macOS) | 148 MB | ~250 MB~ |
 | platform-tools 37.0.3 (adb) | 16 MB | ~40 MB~ |
 | emulator 37.3.10 (arm64 macOS) | 401 MB | ~900 MB~ |
 | system image Android 14, `google_apis`, arm64 | 1 536 MB | ~3 GB~ |
-| Telegram APK | ~80 MB (estimate) | ~80 MB |
+| Telegram APK (universal: arm64-v8a included, checked) | ~80 MB~ | ~80 MB~ |
 | AVD data partition (grows with use) | | 2-6 GB~ |
-| quick-boot snapshot (A only) | | 1-2 GB~ |
-| **Total** | **~2.4 GB** | **~8-12 GB~** |
+| **Total** | **~2.4 GB** | **~7-10 GB~** |
 
-**Free at least 15 GB before starting** (the Mac is at 97 %; macOS and the
-emulator both misbehave with a nearly full disk). That is about 8 GB more than
-now. Measured candidates (`du`, not touched):
+**Free at least 15 GB before starting.** Measured candidates (`du`, not touched
+except the old `node_modules` already removed): `~/Downloads` 13.1 GB;
+`~/Library/Containers/com.docker.docker` 12.7 GB (`docker image prune -a` and
+`docker builder prune` only: the goodo-dev stand's RustFS volume lives here);
+`~/.cache` 7.5 GB; `~/Library/pnpm` 7.0 GB (`pnpm store prune`);
+`~/Library/Caches` 6.4 GB; `~/.npm` 4.3 GB.
 
-| Where | Size | Note |
-|---|---|---|
-| `~/Downloads` | 13.1 GB | look through it |
-| `~/Library/Containers/com.docker.docker` | 12.7 GB | `docker image prune -a` and `docker builder prune` only: the goodo-dev stand's RustFS volume lives here, do not prune volumes |
-| `~/.cache` | 7.5 GB | caches, safe to clear per tool |
-| `~/Library/pnpm` | 7.0 GB | `pnpm store prune` drops packages no project uses (many are unused since the old `node_modules` went) |
-| `~/Library/Caches` | 6.4 GB | includes `ms-playwright` 1.4 GB (re-downloads when needed) |
-| `~/.npm` | 4.3 GB | `npm cache clean --force` |
+A server is not an option: the tested VPS has no `/dev/kvm` (no nested
+virtualization), and an account session must not live on a remote disk anyway.
+GitHub's runners do have KVM, which is why the CI lane needs no server.
 
-## Steps
+## Steps (if the owner chooses B)
 
 **Owner, by hand**
 
-1. Free disk to 15 GB or more (above). Tell the agent "ставь".
-2. Decide A or B. For B: a dedicated Telegram account.
-3. Be at the Mac for two things: the Android SDK licence prompt (read and accept it
+1. Free disk to 15 GB or more. Make or choose a dedicated Telegram account
+   (nothing in its chat list). Tell the agent "ставь".
+2. Be at the Mac for two things: the Android SDK licence prompt (read and accept it
    yourself) and, if the JDK installer asks, the macOS password.
 
 **Agent, after "ставь"** (all under `~/android-sdk`, nothing global, nothing in a repo)
 
-4. `brew install openjdk@17` (or the Temurin cask), `JAVA_HOME` set for the shell session only.
-5. Download `https://dl.google.com/android/repository/commandlinetools-mac_arm64-16111833_latest.zip`
+3. `brew install openjdk@17` (or the Temurin cask), `JAVA_HOME` for the shell session only.
+4. Download `https://dl.google.com/android/repository/commandlinetools-mac_arm64-16111833_latest.zip`
    (sha1 `ad03dc49bfacfd52c110b14104ea548b8a07e830`, from Google's metadata), verify, unpack to
    `~/android-sdk/cmdline-tools/latest`.
-6. `sdkmanager --licenses` **(owner accepts)**, then
+5. `sdkmanager --licenses` **(owner accepts)**, then
    `sdkmanager "platform-tools" "emulator" "system-images;android-34;google_apis;arm64-v8a"`.
-7. `avdmanager create avd -n velo-tg -k "system-images;android-34;google_apis;arm64-v8a" -d pixel_7`;
+6. `avdmanager create avd -n velo-tg -k "system-images;android-34;google_apis;arm64-v8a" -d pixel_7`;
    in `config.ini`: `hw.keyboard=no` (on-screen keyboard), `hw.ramSize=3072`.
-8. Telegram for Android from https://telegram.org/android (the official APK); `adb install`.
-9. Start the emulator with a window: `emulator -avd velo-tg` (A: with snapshot; B: `-no-snapshot-save`).
+7. Telegram for Android from https://telegram.org/android (the official APK; the probe
+   used `org.telegram.messenger.web`); `adb install`.
+8. Start the emulator with a window: `emulator -avd velo-tg -no-snapshot-save`.
 
 **Owner, by hand, in the emulator window (nobody else sees this)**
 
-10. A: open the debug menu (press and hold the version number at the bottom of
-    Settings, twice) and look for a backend switch to the test server. Found:
-    log in with `99966XYYYY` / `XXXXX`. Not found: use B.
-    B: log in with the dedicated account (phone, the code from Telegram, 2FA).
-    **The agent takes no screenshots during login.**
-11. A only: on Telegram Desktop with a test account (Shift+Alt+right-click "Add
-    Account" > Test Server), talk to @BotFather: `/newbot`, then set the bot's Mini App
-    URL to `http://10.0.2.2:<port>` (menu button or `/newapp`). Give the agent the
-    bot's username (not the token).
-12. Open the bot's chat and the Mini App once to confirm the stand shows up.
+9. Log in with the dedicated account (phone, the code from Telegram, 2FA). **The agent
+   takes no screenshots during login.** Open the bot's chat and its Mini App once.
 
-**Agent: a stack the emulator can reach and the run**
+**Agent: a stack the emulator can reach, and the run**
 
-13. Run a local stack with the **test bot's token** (A) and the skin under test,
-    on `0.0.0.0:<port>` (the existing goodo-dev scripts take the token from their
-    own `secrets.env`; this run uses a separate copy, never the production dev bot's).
-14. Run the same brief as CI ([briefs/velo-student.md](../briefs/velo-student.md)) with the
-    differences: the app is opened from the bot's chat; Telegram's own chrome is
-    present and in scope; stay in this chat. `claude -p` locally with the same allowed
-    tools as `scripts/velo/run_android.sh`, results into a local, git-ignored folder.
+10. A local stack with the skin under test on `0.0.0.0:<port>` and the bot's token. **The bot is a
+    real bot, so its Mini App URL must be HTTPS** (a tunnel, as the goodo-dev stand has):
+    only Telegram's test server accepts `http://`. Use a dedicated test bot, not the
+    production dev bot, and keep its token out of every repository and CI.
+11. Run [briefs/velo-student.md](../briefs/velo-student.md) with the differences: the app is opened
+    from the bot's chat; Telegram's own chrome is present and in scope; stay in this chat.
+    `claude -p` locally with the same allowed tools as `scripts/velo/run_android.sh`, results into a
+    local, git-ignored folder.
 
 ## What this lane will and will not tell
 

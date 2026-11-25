@@ -51,7 +51,12 @@ Done and verified in GitHub Actions (free runners, no key):
   the emulator job is skipped,
   [run 45580054201](https://github.com/VELO2026-app/velo-mobile-agent-testers/actions/runs/45580054201).
 - Results travel encrypted and decrypt with the owner-side private key (`collect.sh`), checked end to end.
-- Offline tests (59) and the secret scan pass on every push, history included.
+- **Telegram APK probe** (`telegram-probe.yml`, no key, no login):
+  [run 45591293090](https://github.com/VELO2026-app/velo-mobile-agent-testers/actions/runs/45591293090).
+  The official Telegram for Android (13.3.1) installs and runs on the emulator, but its login screen has no
+  switch to Telegram's test environment (that exists only in debug builds, confirmed in the open source),
+  so a Telegram lane on Android needs a real, dedicated account: [docs/telegram-lane.md](docs/telegram-lane.md).
+- Offline tests (61) and the secret scan pass on every push, history included.
 
 Waiting for the Claude key: the agent run itself, and the acceptance pairs on the commits before the
 #205 and #206 fixes ([docs/acceptance.md](docs/acceptance.md)).
@@ -134,6 +139,7 @@ public half; older runs stay unreadable.
 |---|---|
 | `.github/workflows/velo-android.yml` | the lane |
 | `.github/workflows/tests.yml` | offline tests + secret scan |
+| `.github/workflows/telegram-probe.yml` | keyless probe of the official Telegram APK on an emulator |
 | `scripts/velo/` | ours: `sign_init_data.py`, `preflight.sh`, `run_android.sh`, `smoke.py` |
 | `scripts/android/`, `a11y.py`, `agent_status.py`, `summarize.py`, `collect.sh`, `encrypt_results.sh`, `llm_env.sh`, `matrix.py` | vendored from upstream |
 | `briefs/velo-student.md` | the agent's mission |
